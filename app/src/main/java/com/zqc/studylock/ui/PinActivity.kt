@@ -1,5 +1,6 @@
 package com.zqc.studylock.ui
 
+import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
 import android.widget.EditText
@@ -29,10 +30,14 @@ class PinActivity : AppCompatActivity() {
     private fun verify() {
         val input = etOld.text.toString().trim()
         if (input == App.prefs?.pin) {
-            App.lockManager?.let {
-                // 家长验证通过：放行并结束锁定界面
-                finish()
-            }
+            // 放行退出：清除锁定持久化，并把锁定界面一并结束，
+            // 否则 LockActivity.onStop 会在切到本页时把它重新拉回前台
+            App.lockManager?.grantExit()
+            finish()
+            startActivity(
+                Intent(this, MainActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            )
             Toast.makeText(this, "验证通过", Toast.LENGTH_SHORT).show()
         } else {
             Toast.makeText(this, "密码不正确", Toast.LENGTH_SHORT).show()

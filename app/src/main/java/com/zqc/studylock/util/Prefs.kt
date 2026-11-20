@@ -59,6 +59,11 @@ class Prefs(context: Context) {
         const val K_CUSTOM_LABEL = "custom_label_v1"
         const val K_PINYIN_ON = "pinyin_on_v1"
 
+        // 锁定会话持久化：进程被系统回收/待机唤醒后据此恢复锁定
+        const val K_LOCK_ACTIVE = "lock_active_v1"
+        const val K_LOCK_STARTED_AT = "lock_started_at_v1"
+        const val K_LOCK_SOLVED = "lock_solved_v1"
+
         const val TOKEN_TTL_MS = 5 * 60 * 1000L
     }
 
@@ -179,4 +184,20 @@ class Prefs(context: Context) {
     var cheerMode: String
         get() = getString(K_CHEER, "on")
         set(value) = putString(K_CHEER, value)
+
+    // ---- 锁定会话持久化 ----
+    /** 是否处于锁定中（进程被杀/待机唤醒后据此恢复） */
+    var lockActive: Boolean
+        get() = getBool(K_LOCK_ACTIVE, false)
+        set(value) = putBool(K_LOCK_ACTIVE, value)
+
+    /** 本次锁定开始时刻，用于恢复剩余时长 */
+    var lockStartedAt: Long
+        get() = getLong(K_LOCK_STARTED_AT, 0L)
+        set(value) = putLong(K_LOCK_STARTED_AT, value)
+
+    /** 已连续答对题数 */
+    var lockSolved: Int
+        get() = getInt(K_LOCK_SOLVED, 0)
+        set(value) = putInt(K_LOCK_SOLVED, value)
 }

@@ -12,8 +12,9 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-    <!-- 全屏锁定面板 -->
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <!-- 锁定改为普通全屏 Activity，不再申请 SYSTEM_ALERT_WINDOW：
+         小米电视 MitvWindowManager 会对持有系统窗口的应用执行
+         "has system window, so kill it" 强杀并置 stopped，导致待机唤醒后无法自启 -->
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- 题库导入/导出 -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
@@ -57,6 +58,8 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <!-- 小米/红米电视遥控器关机=STR待机，唤醒只发此私有广播，不发标准 BOOT_COMPLETED -->
+                <action android:name="mitv.action.STR_BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
         <receiver android:name=".receiver.AlarmReceiver" android:exported="false" />

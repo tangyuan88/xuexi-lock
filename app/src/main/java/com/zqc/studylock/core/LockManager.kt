@@ -24,6 +24,10 @@ class LockManager(private val context: Context) {
     @Volatile var state: State = State.IDLE
         private set
 
+    /** 家长已验证放行：解锁期间禁止 LockActivity 自动回锁 */
+    @Volatile var exitGranted: Boolean = false
+        private set
+
     private var session: QuizSession? = null
     private var startedAt = 0L
     private var solvedCount = 0
@@ -32,11 +36,24 @@ class LockManager(private val context: Context) {
         if (state != State.IDLE) return
         startedAt = System.currentTimeMillis()
         state = State.LOCKED
+        exitGranted = false
         session = QuizSession(bank, wrongBook, prefs.quizCount).also { it.start() }
+        solvedCount = 0
+        persist()
         showLockScreen()
     }
 
     fun stopSession() {
+        state = State.IDLE
+        session = null
+        exitGranted = false
+        prefs.lockActive = false
+    }
+
+    /** 家长密码验证通过：放行退出，清除锁定持久化 */
+    fun grantExit() {
+        exitGranted = true
+        prefs.lockActive = false
         state = State.IDLE
         session = null
     }
@@ -48,9 +65,24 @@ class LockManager(private val context: Context) {
         }
     }
 
+    /**
+     * 待机唤醒 / 开机 / 进程被杀后恢复。
+     * 关键：原实现只在休息段置状态，不重建锁定会话，导致系统强杀或待机后锁定消失。
+     * 现在若持久化显示仍在锁定中，重建会话并把全屏锁定界面拉回前台。
+     */
     fun restore() {
-        // 重启后若处于休息时间段，恢复到 RESTING 状态
-        if (App.restClock?.resting() == true) state = State.RESTING
+        if (App.restClock?.resting() == true) {
+            state = State.RESTING
+        }
+        if (prefs.lockActive) {
+            // 复用持久化里的起始时间，保证剩余观看时长连续
+            startedAt = prefs.lockStartedAt.takeIf { it > 0L } ?: System.currentTimeMillis()
+            solvedCount = prefs.lockSolved
+            state = State.LOCKED
+            exitGranted = false
+            session = QuizSession(bank, wrongBook, prefs.quizCount).also { it.start() }
+            showLockScreen()
+        }
     }
 
     /** 提交答案；返回 true 表示解锁成功 */
@@ -64,8 +96,17 @@ class LockManager(private val context: Context) {
             stopSession()
             return true
         }
-        showLockScreen()
+        // 只持久化进度，界面由 LockActivity.submit 自己 render() 刷新；
+        // 这里不再 showLockScreen()，否则会重复新建 Activity 并与 onStop 回锁形成循环
+        persist()
         return false
+    }
+
+    /** 把锁定会话写入持久化，供进程重建后恢复 */
+    private fun persist() {
+        prefs.lockActive = true
+        prefs.lockStartedAt = startedAt
+        prefs.lockSolved = solvedCount
     }
 
     fun currentQuestion() = session?.current()
