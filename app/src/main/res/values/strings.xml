@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">学习锁</string>
+    <string name="lan_notification_title">学习锁 · 局域网服务</string>
+    <string name="lan_notification_text">家长控制端可通过局域网连接本机</string>
+    <string name="lock_notification_title">学习锁 · 专注中</string>
+    <string name="rest_notification_title">学习锁 · 休息提醒</string>
+</resources>

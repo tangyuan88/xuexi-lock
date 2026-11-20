@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.StudyLock" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
+        <item name="colorPrimary">#3D7BFF</item>
+        <item name="colorPrimaryDark">#2F6AE0</item>
+        <item name="colorAccent">#3D7BFF</item>
+        <item name="android:windowBackground">#0B1120</item>
+        <item name="android:textColorPrimary">#EEF3FF</item>
+    </style>
+
+    <style name="Theme.StudyLock.Fullscreen" parent="Theme.StudyLock">
+        <item name="android:windowNoTitle">true</item>
+        <item name="windowActionBar">false</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowTranslucentStatus">true</item>
+        <item name="android:windowTranslucentNavigation">true</item>
+        <item name="android:showWhenLocked">true</item>
+        <item name="android:turnScreenOn">true</item>
+    </style>
+</resources>

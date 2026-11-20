@@ -1,0 +1,8 @@
+{
+  "version": 5,
+  "rev": 1,
+  "note": "示例题库（小学一年级数学）",
+  "packs": [
+    { "id": "g1_math", "grade": 1, "subject": 1, "semester": 0 }
+  ]
+}

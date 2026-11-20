@@ -1,0 +1,1305 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>学习锁 · 局域网家长控制端</title>
+<style>
+:root{
+  --bg:#0b1120; --card:#16203a; --card2:#1e2c4d; --line:#2a3a5c;
+  --txt:#eef3ff; --sub:#8fa0be; --pri:#3d7bff; --pri2:#5b93ff;
+  --ok:#21c46b; --err:#f2555a; --warn:#e8b04b;
+}
+body.light{
+  --bg:#f4f6fb; --card:#ffffff; --card2:#eef3ff; --line:#d9e0ef;
+  --txt:#16203a; --sub:#5f6f8d; --pri:#2f6ae0; --pri2:#4b83ef;
+  --ok:#128a4c; --err:#d63b45; --warn:#a97613;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+button,input,select{font:inherit}
+.wrap{max-width:1180px;margin:0 auto;padding:0 16px 60px}
+
+/* 顶部：连接信息 + 高频操作 */
+header{position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px solid var(--line);
+  padding:10px 0;box-shadow:0 4px 18px rgba(0,0,0,.18)}
+.hd{max-width:1180px;margin:0 auto;padding:0 16px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.brand{font-size:16px;font-weight:700;white-space:nowrap}
+.brand span{color:var(--pri)}
+.brand .ver{font-style:normal;font-size:11px;color:var(--sub);margin-left:8px;font-weight:400;
+  border:1px solid var(--line);border-radius:999px;padding:0 7px;vertical-align:2px}
+input[type=text],input[type=number]{
+  background:var(--card);color:var(--txt);border:1px solid var(--line);border-radius:9px;
+  padding:8px 10px;outline:none;min-width:0}
+input:focus{border-color:var(--pri)}
+input::placeholder{color:var(--sub)}
+.f-ip{width:158px}.f-port{width:74px}.f-token{width:112px}
+button{background:var(--card2);color:var(--txt);border:1px solid var(--line);border-radius:10px;
+  padding:8px 14px;cursor:pointer;white-space:nowrap;transition:.15s}
+button:hover{border-color:var(--pri)}
+button.primary{background:var(--pri);border-color:var(--pri);color:#fff;font-weight:600}
+button.primary:hover{background:var(--pri2)}
+button.ghost{background:transparent}
+button:disabled{opacity:.45;cursor:not-allowed}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--sub);display:inline-block;margin-right:6px}
+.dot.on{background:var(--ok)}.dot.off{background:var(--err)}
+#statusLine{color:var(--sub);font-size:13px;flex:1;min-width:150px;text-align:right}
+
+/* 状态条：跟电视上那张卡一个意思 */
+.hero{margin:18px 0 0;display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+  background:linear-gradient(180deg,#14243f,#111c33);border:1px solid var(--pri);border-radius:16px;
+  padding:16px 20px}
+body.light .hero{background:linear-gradient(180deg,#eaf1ff,#f6f9ff)}
+.hero .t{font-size:19px;font-weight:700}
+.hero .s{color:var(--sub);font-size:13px;margin-top:2px}
+.hero .big{font-size:26px;font-weight:700;color:var(--pri);margin-left:auto;font-variant-numeric:tabular-nums}
+.hero button{font-size:16px;padding:11px 22px;font-weight:700}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:14px;align-items:start;margin-top:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:15px;padding:15px 18px 16px}
+.card h2{font-size:14px;margin:0 0 4px;color:var(--sub);font-weight:700;letter-spacing:.03em}
+.card .hint{color:var(--sub);font-size:12px;margin:6px 0 0;line-height:1.65}
+
+/* chip：和电视上那颗按钮一样的感觉 */
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0 0}
+.chip{background:var(--card2);border:1px solid var(--line);border-radius:10px;
+  padding:8px 14px;font-size:13px;color:var(--txt);cursor:pointer;user-select:none;transition:.12s}
+.chip:hover{border-color:var(--pri)}
+.chip.on{background:var(--pri);border-color:var(--pri);color:#fff;font-weight:600}
+.chip.on:hover{background:var(--pri2)}
+.chip small{opacity:.75;font-weight:400}
+
+.num{display:flex;align-items:center;gap:6px;background:var(--card2);border:1px solid var(--line);
+  border-radius:10px;padding:4px 6px}
+.num input{width:74px;border:none;background:transparent;padding:4px 6px;text-align:center;font-weight:700}
+.num input:focus{outline:none}
+/* v2.6.5：发音人改成下拉，跟着电视下发的发音人表走 */
+.num select{border:none;background:transparent;color:var(--txt);font-weight:600;padding:4px 6px;max-width:220px}
+.num select:focus{outline:none}
+.num select option{background:var(--card);color:var(--txt)}
+.num .unit{color:var(--sub);font-size:12px;padding-right:4px}
+/* v2.5.4：自定义输入后面的「确定」按钮，比普通 chip 小一号，塞得进同一行 */
+.num .chip{padding:5px 10px;font-size:12px;border-radius:8px}
+
+/* v2.6.1：主开关关着时，下面那些时长只是「存着」，不会真的提醒。
+   原来只有一排 chip 没有任何提示，家长输完自定义点了确定，看不出到底生效没有，
+   所以标题后面挂状态徽标、开关下面挂一条状态条，关着就直接说清楚并给一键开启。 */
+.pill{display:inline-block;margin-left:9px;padding:1px 9px;border-radius:999px;font-size:11px;
+  font-weight:700;line-height:1.7;vertical-align:1px;border:1px solid transparent}
+.pill.on{background:var(--ok);border-color:var(--ok);color:#04160c}
+.pill.off{background:rgba(242,85,90,.16);border-color:rgba(242,85,90,.5);color:var(--err)}
+.gate{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 0;border-radius:10px;
+  padding:7px 10px;font-size:12px;line-height:1.55;border:1px solid transparent}
+.gate.off{background:rgba(232,176,75,.13);border-color:rgba(232,176,75,.45);color:var(--warn)}
+.gate.on{background:rgba(33,196,107,.1);border-color:rgba(33,196,107,.35);color:var(--ok)}
+.gate b{color:inherit;font-weight:700}
+/* 文字占弹性宽度、按钮固定右侧，免得长文案把按钮挤到第二行去 */
+.gate>span:not(.dot){flex:1 1 130px;min-width:0}
+.gate .act{margin-left:auto;flex:0 0 auto;background:var(--warn);border-color:var(--warn);color:#1d1400;
+  font-weight:700;padding:5px 11px;font-size:12px;border-radius:8px}
+.gate .act:hover{filter:brightness(1.1)}
+.gate.pulse{animation:gpulse .85s ease-out 2}
+@keyframes gpulse{0%,100%{box-shadow:0 0 0 0 rgba(232,176,75,0)}50%{box-shadow:0 0 0 4px rgba(232,176,75,.28)}}
+body.light .gate.off{background:#fdf6e5;border-color:#e7c884;color:#8a5c00}
+body.light .gate.on{background:#ecfaf2;border-color:#a8dfc0;color:#0c6a3b}
+body.light .gate .act{color:#fff;background:#a97613;border-color:#a97613}
+/* 主开关关着：下面的时长压暗一档，一眼看出不是「当前生效值」 */
+#restBody.dim{opacity:.62}
+
+.days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
+.days .chip{min-width:0;text-align:center;padding:7px 0;font-size:12px}
+
+/* v2.6.4 题库列表：卡片占满一行，每个包一颗 chip，名字不再用省略号截断。
+   老版本是「2 列 + 两个复选框」，文字只剩 86px 宽，所有包名都变成「一年级语文·…」，
+   家长根本分不清是哪一册。 */
+.card.wide{grid-column:1/-1}
+.pkbar{display:flex;align-items:center;gap:8px;margin:12px 0 0;flex-wrap:wrap}
+.pkbar #packSum{flex:1 1 200px;color:var(--sub);font-size:12px;margin:0}
+.pkbar #packSum b{color:var(--pri);font-weight:700}
+.chip.sm{padding:4px 10px;font-size:12px;border-radius:8px}
+.chip.danger{border-color:rgba(242,85,90,.5);color:var(--err)}
+.chip.danger:hover{background:rgba(242,85,90,.14);border-color:var(--err)}
+.pk{display:grid;grid-template-columns:repeat(auto-fill,minmax(216px,1fr));gap:6px;
+  max-height:330px;overflow:auto;padding-right:4px;margin-top:8px}
+.pk .pc{display:flex;align-items:center;gap:7px;width:100%;text-align:left;
+  background:var(--card2);border:1px solid var(--line);border-radius:9px;padding:7px 9px;
+  font-size:12.5px;line-height:1.35;color:var(--txt);cursor:pointer;min-width:0;
+  transition:.12s;white-space:normal}
+.pk .pc:hover{border-color:var(--pri)}
+.pk .pc .nm{flex:1 1 auto;min-width:0;white-space:normal;word-break:break-word}
+.pk .pc .cnt{flex:0 0 auto;color:var(--sub);font-size:11px;font-variant-numeric:tabular-nums}
+.pk .pc .dt{flex:0 0 auto;width:8px;height:8px;border-radius:50%;background:var(--line)}
+.pk .pc.on{border-color:var(--pri);background:rgba(61,123,255,.15)}
+.pk .pc.on .dt{background:var(--ok);box-shadow:0 0 0 3px rgba(33,196,107,.18)}
+.pk .pc.on .nm{font-weight:600}
+.pk .pc:not(.on){opacity:.66}
+.pk .pc:not(.on):hover{opacity:1}
+.pk .pc.busy{opacity:.45;cursor:wait}
+body.light .pk .pc.on{background:#e6efff}
+.zips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.zips button{font-size:12px;padding:5px 10px}
+
+/* 删除确认：原生 confirm 看不到要删的是哪些包，改成列出名字的弹窗 */
+#ask{position:fixed;inset:0;z-index:60;background:rgba(4,8,18,.62);display:flex;
+  align-items:center;justify-content:center;padding:20px}
+#ask[hidden]{display:none}
+#ask .box{background:var(--card);border:1px solid var(--line);border-radius:16px;width:100%;
+  max-width:520px;padding:18px 20px;box-shadow:0 24px 60px rgba(0,0,0,.5);
+  display:flex;flex-direction:column;max-height:80vh}
+#ask h3{margin:0 0 6px;font-size:15px}
+#ask p{margin:0;color:var(--sub);font-size:12.5px;line-height:1.7}
+#ask p b{color:var(--warn);font-weight:700}
+#ask .lst{margin:11px 0 0;overflow:auto;max-height:36vh;background:var(--card2);
+  border-radius:10px;padding:8px 11px;font-size:12px;line-height:1.95}
+#ask .btns{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+#ask .btns button{padding:9px 18px}
+#ask .btns .solid{background:var(--err);border-color:var(--err);color:#fff;font-weight:700}
+.file{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.file input[type=file]{font-size:12px;color:var(--sub);max-width:100%}
+
+#toast{position:fixed;right:18px;bottom:18px;z-index:50;display:flex;flex-direction:column;gap:8px;align-items:flex-end}
+#toast div{background:rgba(33,196,107,.16);color:var(--ok);border:1px solid rgba(33,196,107,.4);
+  border-radius:10px;padding:8px 14px;font-size:13px;animation:fi .18s ease-out}
+#toast div.err{background:rgba(242,85,90,.16);color:var(--err);border-color:rgba(242,85,90,.45)}
+#toast div.warn{background:rgba(232,176,75,.16);color:var(--warn);border-color:rgba(232,176,75,.5)}
+@keyframes fi{from{opacity:0;transform:translateY(6px)}}
+footer{color:var(--sub);font-size:12px;margin-top:22px;line-height:1.9}
+@media(max-width:760px){
+  .hero .big{margin-left:0;width:100%}
+  #statusLine{text-align:left;flex-basis:100%}
+  .pk{grid-template-columns:1fr}
+}
+/* v2.6.5：手机上顶部挤不下，副标题和面板版本号是次要信息，先让位给刷新/主题按钮 */
+@media(max-width:520px){
+  .brand span{display:none}
+  .hd .ver{display:none}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="hd">
+    <div class="brand">学习锁 <span>· 局域网家长控制端</span><i class="ver" title="控制端面板版本，跟随本次发版号">面板 2.6.5</i></div>
+    <input id="ip" class="f-ip" type="text" placeholder="电视 IP，如 192.168.1.8">
+    <input id="port" class="f-port" type="text" placeholder="端口" value="8765">
+    <input id="token" class="f-token" type="text" placeholder="8 位验证码">
+    <button id="btnConnect" class="primary">连接</button>
+    <button id="btnRefresh" class="ghost">刷新</button>
+    <button id="btnTheme" class="ghost" title="切换配色">☀</button>
+    <div id="statusLine"><span class="dot"></span>未连接</div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="hero">
+    <div>
+      <div class="t" id="heroState">未连接</div>
+      <div class="s" id="heroSub">填上电视 IP 和验证码，点「连接」</div>
+    </div>
+    <button id="btnGuard" class="primary">开启守护</button>
+    <div class="big" id="heroLeft">—</div>
+  </div>
+
+  <div class="grid">
+
+    <section class="card">
+      <h2>临时停用</h2>
+      <div class="row" id="snoozeRow">
+        <button class="chip" data-snooze="15">停用 15 分钟</button>
+        <button class="chip" data-snooze="30">停用 30 分钟</button>
+        <button class="chip" data-snooze="60">停用 60 分钟</button>
+        <button class="chip" data-snooze="0">立即恢复</button>
+      </div>
+      <p class="hint" id="snoozeHint">临时停用不会关掉守护，到点自动恢复计时。</p>
+    </section>
+
+    <section class="card">
+      <h2>看电视时间 / 护眼休息<span class="pill off" id="restPill">关闭</span></h2>
+      <div class="row" id="restOnRow"></div>
+      <div class="gate off" id="restGate"></div>
+      <div id="restBody">
+        <div class="row" id="restWatchRow"></div>
+        <div class="row" id="restWatchCustom"></div>
+        <div class="row" id="restSecRow"></div>
+        <div class="row" id="restSecCustom"></div>
+      </div>
+      <div class="row"><button class="chip" id="btnTestRest">立即测试弹窗</button></div>
+      <p class="hint">到点只提醒休息、不出题；倒计时结束自动回到电视。与答题计时完全独立，
+        两个时长设成一样时<b>休息优先</b>。「立即测试弹窗」不用等到点，点一下电视上马上进一次休息倒计时。</p>
+    </section>
+
+    <section class="card">
+      <h2>每轮观看时长</h2>
+      <div class="row" id="watchRow"></div>
+      <div class="row" id="watchCustom"></div>
+      <div class="row"><button class="chip" id="btnTestQuiz">立即测试弹窗</button></div>
+      <p class="hint">每看满这么分钟弹一道题，答对才能接着看下一轮。「立即测试弹窗」立刻让电视弹一道，
+        用来确认悬浮窗权限和覆盖效果（守护关着会先替你开）。</p>
+    </section>
+
+    <section class="card">
+      <h2>每次弹窗答题数量</h2>
+      <div class="row" id="quizRow"></div>
+      <div class="row" id="quizCustom"></div>
+      <p class="hint">答错不计数，讲解后换新题重做。</p>
+    </section>
+
+    <section class="card">
+      <h2>答错讲解后等待</h2>
+      <div class="row" id="waitRow"></div>
+      <div class="row" id="waitCustom"></div>
+      <p class="hint">讲解显示完，过这么多秒才进入下一题。</p>
+    </section>
+
+    <section class="card">
+      <h2>错题统计</h2>
+      <p class="hint" id="wrongLine">连接后显示累计答对 / 答错次数。答错的题会自动进错题本，之后被抽中的概率变高。</p>
+      <div class="row" id="wrongTop"></div>
+      <div class="row"><button class="chip" id="wrongClear">清空错题统计</button></div>
+      <p class="hint">只清统计，不动题库；清空后所有题恢复成一样的出现概率。</p>
+    </section>
+
+    <section class="card">
+      <h2>答对鼓励</h2>
+      <div class="row" id="cheerRow"></div>
+      <p class="hint">音效是本地合成的，不用联网；语音夸奖走朗读通道。</p>
+    </section>
+
+    <section class="card">
+      <h2>一二年级注音</h2>
+      <div class="row" id="pinyinRow"></div>
+      <p class="hint">一、二年级题干 / 选项 / 讲解在汉字上方标带调拼音。</p>
+    </section>
+
+    <section class="card">
+      <h2>幼儿园 · 一二年级题目朗读</h2>
+      <div class="row" id="readRow"></div>
+      <p class="hint">题目出现时自动念题干和选项（幼儿园包也覆盖）；答错讲解的朗读在下面单独控制。</p>
+    </section>
+
+    <section class="card">
+      <h2>答错语音讲解<span class="pill off" id="voicePill">默认通道</span></h2>
+      <div class="row" id="voiceRow"></div>
+      <div class="row"><div class="num"><select id="ttsVoice"></select></div></div>
+      <p class="hint">发音人跟着电视下发的名单走，选完立刻生效。</p>
+      <div class="row"><div class="num"><input id="azureKey" type="text" placeholder="微软语音 Key（可留空）" style="width:240px;text-align:left"></div></div>
+      <div class="row"><div class="num"><input id="azureRegion" type="text" placeholder="区域，如 eastasia（可留空）" style="width:240px;text-align:left"></div></div>
+      <p class="hint">电视默认走免 Key 的免费通道，装好就能念；只有想换音质才需要填自己的
+        <b>微软语音 Key</b>（Azure 语音服务），留空不影响使用。</p>
+    </section>
+
+    <section class="card">
+      <h2>严格模式</h2>
+      <div class="row" id="strictRow"></div>
+      <p class="hint">每 2 秒自检，答题页被系统收走立刻补回来。</p>
+    </section>
+
+    <section class="card">
+      <h2>答题时暂停播放</h2>
+      <div class="row" id="pauseRow"></div>
+      <p class="hint">弹题时抢音频焦点并连发暂停键。</p>
+    </section>
+
+    <section class="card">
+      <h2>家长密码<span class="pill off" id="pinPill">未连接</span></h2>
+      <div class="row" id="pinRow">
+        <div class="num"><input id="pinOld" type="password" inputmode="numeric" maxlength="4" placeholder="原密码" style="width:92px;text-align:center"></div>
+        <div class="num"><input id="pinNew" type="password" inputmode="numeric" maxlength="4" placeholder="新密码" style="width:92px;text-align:center"></div>
+        <div class="num"><input id="pinNew2" type="password" inputmode="numeric" maxlength="4" placeholder="再输一次" style="width:92px;text-align:center"></div>
+      </div>
+      <div class="row"><button class="chip" id="btnPin">修改密码</button></div>
+      <p class="hint">4 位数字，改完立刻生效（电视上输密码用的就是它）。
+        第一次设置时原密码那格留空即可。<b>忘记密码只能卸载重装</b>，请记牢。</p>
+    </section>
+
+    <section class="card">
+      <h2>定时开启 / 关闭学习锁<span class="pill off" id="schedPill">全天</span></h2>
+      <div class="row" id="schedOnRow"></div>
+      <div class="gate off" id="schedGate"></div>
+      <div class="row" id="schedTimeRow">
+        <div class="num"><input id="schStart" type="text" maxlength="4" style="width:66px"><span class="unit">开始</span></div>
+        <div class="num"><input id="schEnd" type="text" maxlength="4" style="width:66px"><span class="unit">结束</span></div>
+      </div>
+      <div class="row days" id="dayRow"></div>
+      <div class="row">
+        <button class="chip" data-days="127">全周</button>
+        <button class="chip" data-days="62">工作日</button>
+        <button class="chip" data-days="65">周末</button>
+      </div>
+      <p class="hint">时间填 4 位数字，如 1830。支持跨夜：20:00 → 次日 07:00 算起始日那一天。</p>
+    </section>
+
+    <section class="card wide">
+      <h2>题库<span class="pill" id="packPill"></span></h2>
+      <div class="file">
+        <input id="zipFile" type="file" accept=".zip,.ZIP">
+        <button id="btnUpload" class="primary">上传 zip 到电视</button>
+      </div>
+      <p class="hint" id="uploadMsg">zip 格式见《题库制作指南.md》。上传后自动出现在下面的列表里。</p>
+      <div class="zips" id="zips"><span class="hint">连接后显示</span></div>
+      <div class="pkbar">
+        <p class="hint" id="packSum">连接后显示</p>
+        <button class="chip sm" id="btnExportPack" title="打包成 zip 下载，可再传到别的电视导入">导出备份</button>
+        <button class="chip sm" id="btnRefreshPack">刷新</button>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button class="chip" id="btnAllPack">全选</button>
+        <button class="chip" id="btnNonePack">全不选</button>
+        <button class="chip danger" id="btnDelPack">删除</button>
+      </div>
+      <div class="pk" id="packs"><span class="hint">连接后显示</span></div>
+      <p class="hint">点亮＝这个包参与出题，点一下立刻生效，再点一下取消。
+        「删除」删的是<b>当前没点亮</b>的那些包 —— 想单删就把那一个点灭再删，全不选再删＝清空题库。</p>
+    </section>
+
+  </div>
+
+  <footer>
+    设置改完<b>立刻生效</b>，没有保存按钮。连不上时按顺序检查：① 手机 / 电脑和电视在<b>同一个 WiFi</b>；
+    ② 电视控制台里「局域网家长控制」是<b>开启</b>状态；③ 验证码抄对了（8 位，电视上显示）。
+    本文件可离线双击打开，不经过任何公网服务器。
+  </footer>
+</div>
+
+<div id="toast"></div>
+
+<div id="ask" hidden>
+  <div class="box">
+    <h3 id="askT"></h3>
+    <p id="askD"></p>
+    <div class="lst" id="askL"></div>
+    <div class="btns">
+      <button id="askNo" class="ghost">取消</button>
+      <button id="askYes" class="solid">确定</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  var $ = function(s){ return document.querySelector(s); };
+  var $$ = function(s){ return Array.prototype.slice.call(document.querySelectorAll(s)); };
+  var BASE = '', TOKEN = '', cfg = {}, connected = false, running = false;
+  // v2.6.5：从电视给的网址直接打开时（http/https），页面和接口同源，
+  // 不需要再填 IP／端口／验证码 —— 地址栏里本来就带着 t。
+  // 双击本地 HTML（file://）打开的老用法完全不受影响。
+  var SAME = (location.protocol === 'http:' || location.protocol === 'https:');
+
+  // 未连接时也把控件按默认值摆出来，页面一打开就是完整形状；
+  // 点连接后会被电视上的真实设置整体覆盖。
+  var DEF = {
+    running:false, watch_min:30, quiz_count:1, wrong_wait:60, cheer:1,
+    strict:true, voice_on:true, pinyin:true, read_question:true, pause_media:true,
+    schedule_on:false, schedule_start:1080, schedule_end:1260, schedule_days:127,
+    rest_on:false, rest_watch_min:30, rest_sec:60, tts_voice:'', lan_on:false
+  };
+
+  /* ------------------------------ 基础工具 ------------------------------ */
+  function toast(text, ok){
+    var box = $('#toast');
+    var d = document.createElement('div');
+    if (ok === false) d.className = 'err';
+    else if (ok === 'warn') d.className = 'warn';
+    d.textContent = text;
+    box.appendChild(d);
+    setTimeout(function(){ d.style.opacity = '0'; d.style.transition = 'opacity .3s'; }, 1600);
+    setTimeout(function(){ if (d.parentNode) box.removeChild(d); }, 2000);
+    while (box.children.length > 4) box.removeChild(box.firstChild);
+  }
+  function setStatus(text, state){
+    $('#statusLine').innerHTML = '<span class="dot ' + (state||'') + '"></span>' + text;
+  }
+  function url(path){
+    return BASE + path + (path.indexOf('?') >= 0 ? '&' : '?') + 't=' + encodeURIComponent(TOKEN);
+  }
+  function checkResp(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }
+  function apiGet(p){ return fetch(url(p), {method:'GET'}).then(checkResp); }
+  function apiPost(p, obj){
+    return fetch(url(p), {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(obj)}).then(checkResp);
+  }
+  function mmss(ms){
+    if (!(ms > 0)) return '—';
+    var s = Math.floor(ms/1000), m = Math.floor(s/60);
+    return m + ':' + ('0' + (s%60)).slice(-2);
+  }
+  function hhmm(min){
+    min = ((min % 1440) + 1440) % 1440;
+    return ('0' + Math.floor(min/60)).slice(-2) + ('0' + (min%60)).slice(-2);
+  }
+  function fromHHMM(s){
+    s = (s||'').trim();
+    if (!/^\d{3,4}$/.test(s)) return null;
+    var h = parseInt(s.slice(0,-2),10), m = parseInt(s.slice(-2),10);
+    if (h > 23 || m > 59) return null;
+    return h*60 + m;
+  }
+
+  /* --------------------------- 实时保存（合并请求） --------------------------- */
+  var pending = null, timer = null;
+  function push(patch){
+    if (!connected){ toast('先点「连接」', false); return; }
+    pending = pending || {};
+    for (var k in patch) pending[k] = patch[k];
+    clearTimeout(timer);
+    timer = setTimeout(flush, 160);
+  }
+  function flush(){
+    var body = pending; pending = null;
+    if (!body) return;
+    apiPost('/api/set', body).then(function(r){
+      if (r.ok){
+        // v2.6.1：存进去但主开关还关着，就不能只说「已生效」——那是在骗人。
+        var warn = gatedOffMsg(body);
+        if (warn) toast(warn, 'warn'); else toast('已生效');
+        loadStatus();
+      }
+      else toast(r.message || '保存失败', false);
+    }).catch(function(e){ toast('保存失败：' + e.message, false); });
+  }
+
+  /* ------------------------ 主开关 → 从属设置（门控） ------------------------ */
+  // 这些字段存下来也要等主开关打开才有意义：关着的时候必须当场讲明白。
+  var GATE = {
+    rest_watch_min:'rest_on', rest_sec:'rest_on', rest_on:'rest_on',
+    schedule_start:'schedule_on', schedule_end:'schedule_on', schedule_days:'schedule_on'
+  };
+  function gateKey(key){ return GATE[key] || null; }
+  function gateIsOff(key){
+    var g = gateKey(key);
+    return !!g && !cfg[g];
+  }
+  function gatedOffMsg(body){
+    for (var k in body){
+      if (!gateIsOff(k)) continue;
+      if (GATE[k] === 'rest_on')
+        return '已保存，但护眼休息还是「关闭」状态 —— 到点不会提醒，点「开启」或「立即开启」才生效';
+      return '已保存，但现在是「全天生效」—— 时段和星期不会用到，点「按时段生效」才生效';
+    }
+    return null;
+  }
+
+  /* ------------------------------ 行绑定表 ------------------------------ */
+  // 同一个值有两个入口（预设 chip + 自定义输入），改哪边都要让另一边马上跟上，
+  // 否则出现「45 分钟还是蓝的、输入框写着 1」这种自相矛盾的画面。
+  var BIND = {};
+  function bind(key, fn){ (BIND[key] = BIND[key] || []).push(fn); }
+  function refresh(key){
+    var list = BIND[key] || [];
+    for (var i = 0; i < list.length; i++){ try { list[i](); } catch(e){} }
+    renderGates();
+  }
+
+  /* ------------------------------ 主开关状态条 ------------------------------ */
+  function gateStrip(sel, key, onText, offText, actText){
+    var gate = $(sel);
+    if (!gate) return;
+    var on = !!cfg[key];
+    gate.className = 'gate ' + (on ? 'on' : 'off') + (gate._pulse ? ' pulse' : '');
+    gate.innerHTML = '';
+    var dot = document.createElement('span');
+    dot.className = 'dot ' + (on ? 'on' : 'off');
+    dot.style.marginRight = '0';
+    var txt = document.createElement('span');
+    txt.innerHTML = on ? onText() : offText();
+    gate.appendChild(dot); gate.appendChild(txt);
+    if (!on && actText){
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'act';
+      b.textContent = actText;
+      b.onclick = function(){
+        if (!connected){ toast('先点「连接」', false); return; }   // 没连上别把界面改成「已开启」骗自己
+        cfg[key] = true;
+        refresh(key);
+        push(one(key, true));
+        toast(key === 'rest_on'
+          ? ('护眼休息已开启：每 ' + cfg.rest_watch_min + ' 分钟休息 ' + cfg.rest_sec + ' 秒')
+          : ('已改成按时段生效：' + hhmm(cfg.schedule_start) + '–' + hhmm(cfg.schedule_end)));
+      };
+      gate.appendChild(b);
+    }
+  }
+
+  function renderGates(){
+    // 护眼休息
+    var restOn = !!cfg.rest_on;
+    var rp = $('#restPill');
+    if (rp){ rp.className = 'pill ' + (restOn ? 'on' : 'off'); rp.textContent = restOn ? '开启' : '关闭'; }
+    var rb = $('#restBody');
+    if (rb) rb.className = restOn ? '' : 'dim';
+    gateStrip('#restGate', 'rest_on',
+      function(){ return '正在生效：每 <b>' + cfg.rest_watch_min + '</b> 分钟提醒休息 <b>' + cfg.rest_sec + '</b> 秒'; },
+      function(){ return '护眼休息<b>现在是关闭的</b> —— 下面的时长只保存、到点不会提醒'; },
+      '立即开启');
+
+    // 定时生效
+    var sOn = !!cfg.schedule_on;
+    var sp = $('#schedPill');
+    if (sp){ sp.className = 'pill ' + (sOn ? 'on' : 'off'); sp.textContent = sOn ? '按时段' : '全天'; }
+    gateStrip('#schedGate', 'schedule_on',
+      function(){ return '正在生效：只在 <b>' + hhmm(cfg.schedule_start) + '–' + hhmm(cfg.schedule_end) + '</b> 之间弹题'; },
+      function(){ return '现在是<b>全天生效</b> —— 下面的时间段和星期都不会用到'; },
+      '改成按时段');
+  }
+
+  /** 主开关关着时点「确定」：让状态条闪一下，把注意力引到「该怎么开」。 */
+  function pulseGate(key){
+    var g = gateKey(key);
+    if (!g || cfg[g]) return;
+    var el = g === 'rest_on' ? $('#restGate') : $('#schedGate');
+    if (!el) return;
+    el._pulse = false;
+    renderGates();
+    el._pulse = true;
+    renderGates();
+    var t = el;
+    setTimeout(function(){ t._pulse = false; renderGates(); }, 1800);
+  }
+
+  /* ------------------------------ chip 渲染 ------------------------------ */
+  function chip(text, on){
+    var b = document.createElement('button');
+    b.className = 'chip' + (on ? ' on' : '');
+    b.innerHTML = text;
+    return b;
+  }
+  function boolRow(sel, key, onLabel, offLabel){
+    var box = $(sel);
+    var draw = function(){
+      box.innerHTML = '';
+      var yes = chip(onLabel, !!cfg[key]);
+      var no = chip(offLabel, !cfg[key]);
+      yes.onclick = function(){ cfg[key] = true; refresh(key); push(one(key, true)); };
+      no.onclick = function(){ cfg[key] = false; refresh(key); push(one(key, false)); };
+      box.appendChild(yes); box.appendChild(no);
+    };
+    bind(key, draw);
+    draw();
+  }
+  function one(k, v){ var o = {}; o[k] = v; return o; }
+
+  /* 有些浏览器（含部分内核的双击 file:// 打开）会禁用 localStorage，
+     直接调用会抛异常把整段脚本打死，所以统一走这两个包一层 try 的入口。 */
+  function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
+  function lsSet(k, v){ try { localStorage.setItem(k, v); } catch(e){} }
+
+  function presetRow(sel, key, values, unit){
+    var box = $(sel);
+    var draw = function(){
+      box.innerHTML = '';
+      values.forEach(function(v){
+        var b = chip(v + (unit ? ' ' + unit : ''), cfg[key] === v);
+        b.onclick = function(){
+          cfg[key] = v;
+          refresh(key);
+          push(one(key, v));
+        };
+        box.appendChild(b);
+      });
+    };
+    bind(key, draw);
+    draw();
+  }
+
+  /* 自定义输入：需要知道字段名，单独包一层 */
+  function customRow(sel, key, unit, min, max){
+    var box = $(sel);
+    box.innerHTML = '';
+    var wrap = document.createElement('div');
+    wrap.className = 'num';
+    var label = document.createElement('span');
+    label.className = 'unit'; label.textContent = '自定义';
+    var inp = document.createElement('input');
+    inp.type = 'number'; inp.min = min; inp.max = max; inp.value = cfg[key];
+    var un = document.createElement('span');
+    un.className = 'unit'; un.textContent = unit || '';
+    // v2.5.4：旁边加「确定」。原来只挂 onchange（要失焦才触发），
+    // 家长输完数字看不出到底生效没有，一直在猜「有没有启动」。
+    var okBtn = document.createElement('button');
+    okBtn.type = 'button';
+    okBtn.className = 'chip';
+    okBtn.textContent = '确定';
+    var apply = function(){
+      var n = parseInt(inp.value, 10);
+      if (isNaN(n)){ inp.value = cfg[key]; flash(okBtn, '请填数字'); return; }
+      if (n < min) n = min;
+      if (n > max) n = max;
+      inp.value = n;
+      if (cfg[key] === n){
+        // 值本来就是这个数：主开关开着才算「已生效」；关着就只说「已保存」，
+        // 不然家长看到「已生效」以为会提醒，其实什么都不会发生。
+        flash(okBtn, gateIsOff(key) ? '已保存' : '已生效');
+        pulseGate(key);
+        return;
+      }
+      cfg[key] = n;
+      refresh(key);          // 预设 chip 立刻跟着变，不再出现「两处数字不一样」
+      flash(okBtn, '已保存');
+      pulseGate(key);
+      push(one(key, n));
+    };
+    okBtn.onclick = apply;
+    inp.onkeydown = function(e){ if (e.key === 'Enter'){ e.preventDefault(); apply(); } };
+    inp.onchange = apply;   // 失焦也照样保存；值没变时上面会直接 return，不会重复提交
+    wrap.appendChild(label); wrap.appendChild(inp); wrap.appendChild(un); wrap.appendChild(okBtn);
+    box.appendChild(wrap);
+    // 预设 chip 改了值，输入框要跟着刷新（只写值，不重建，避免抢焦点）
+    bind(key, function(){ if (inp.value !== String(cfg[key])) inp.value = cfg[key]; });
+  }
+
+  /** 按钮上的短暂反馈：点「确定」后 1.2 秒内显示「已保存 / 已生效」，然后还原。 */
+  function flash(btn, text){
+    if (btn._t) clearTimeout(btn._t);
+    if (!btn._old) btn._old = btn.textContent;
+    btn.textContent = text;
+    btn.classList.add('on');
+    btn._t = setTimeout(function(){
+      btn.textContent = btn._old;
+      btn.classList.remove('on');
+      btn._t = null;
+    }, 1200);
+  }
+
+  function enumRow(sel, key, opts){
+    var box = $(sel);
+    var draw = function(){
+      box.innerHTML = '';
+      opts.forEach(function(o, i){
+        var b = chip(o, cfg[key] === i);
+        b.onclick = function(){ cfg[key] = i; refresh(key); push(one(key, i)); };
+        box.appendChild(b);
+      });
+    };
+    bind(key, draw);
+    draw();
+  }
+
+  /* ------------------------------ 整体渲染 ------------------------------ */
+  var WATCH = [15, 20, 30, 45, 60];
+  var QUIZ = [1, 2, 3, 5];
+  var WAIT = [30, 60, 90, 120];
+  var DAYS = [['周日',1],['周一',2],['周二',4],['周三',8],['周四',16],['周五',32],['周六',64]];
+
+  /** v2.6.5：发音人下拉。选项来自电视下发的 voices，避免家长对着空文本框猜。 */
+  function buildVoiceOptions(){
+    var sel = $('#ttsVoice');
+    if (!sel) return;
+    var keep = sel.value;
+    sel.innerHTML = '';
+    var list = cfg.voices || [];
+    for (var i = 0; i < list.length; i++){
+      var o = document.createElement('option');
+      o.value = list[i].id;
+      o.textContent = list[i].label || list[i].id;
+      o.title = list[i].note || '';
+      sel.appendChild(o);
+    }
+    if (keep) sel.value = keep;
+  }
+
+  function renderAll(){
+    BIND = {};   // 每次整体重画都重建绑定表，否则旧闭包越积越多
+    boolRow('#restOnRow', 'rest_on', '开启（到点提醒休息）', '关闭');
+    presetRow('#restWatchRow', 'rest_watch_min', [15, 20, 30, 45, 60], '分钟');
+    customRow('#restWatchCustom', 'rest_watch_min', '分钟', 1, 600);
+    presetRow('#restSecRow', 'rest_sec', [30, 60, 90, 120], '秒');
+    customRow('#restSecCustom', 'rest_sec', '秒', 10, 3600);
+
+    presetRow('#watchRow', 'watch_min', WATCH, '分钟');
+    customRow('#watchCustom', 'watch_min', '分钟', 1, 600);
+
+    presetRow('#quizRow', 'quiz_count', QUIZ, '道');
+    customRow('#quizCustom', 'quiz_count', '道', 1, 10);
+
+    presetRow('#waitRow', 'wrong_wait', WAIT, '秒');
+    customRow('#waitCustom', 'wrong_wait', '秒', 0, 600);
+
+    enumRow('#cheerRow', 'cheer', ['关闭', '音效（推荐）', '音效 + 语音夸奖']);
+    boolRow('#pinyinRow', 'pinyin', '开启（推荐）', '关闭');
+    boolRow('#readRow', 'read_question', '开启（推荐）', '关闭');
+    boolRow('#voiceRow', 'voice_on', '开启（推荐）', '关闭');
+    boolRow('#strictRow', 'strict', '开启（推荐）', '关闭');
+    boolRow('#pauseRow', 'pause_media', '开启（推荐）', '关闭');
+    boolRow('#schedOnRow', 'schedule_on', '按时段生效', '全天生效（不限制）');
+
+    // v2.6.5：发音人改成下拉，选项由电视下发（原来是个裸文本框，家长不知道能填什么）
+    buildVoiceOptions();
+    if (cfg.tts_voice) $('#ttsVoice').value = cfg.tts_voice;
+    $('#azureKey').value = cfg.azure_key || '';
+    $('#azureRegion').value = cfg.azure_region || '';
+    var vp = $('#voicePill');
+    if (vp){
+      if (cfg.azure_key){ vp.className = 'pill on'; vp.textContent = '已配微软 Key'; }
+      else { vp.className = 'pill'; vp.textContent = '免费通道'; }
+    }
+    $('#schStart').value = hhmm(cfg.schedule_start || 0);
+    $('#schEnd').value = hhmm(cfg.schedule_end || 0);
+
+    // v2.6.5：家长密码状态（永远不回显密码本身，只说设没设）
+    var pp = $('#pinPill');
+    if (pp){
+      if (cfg.pin_set){ pp.className = 'pill on'; pp.textContent = '已设置'; }
+      else { pp.className = 'pill off'; pp.textContent = '默认 0000'; }
+    }
+
+    setMask(cfg.schedule_days || 127);
+    renderGates();
+  }
+  function setMask(m){
+    cfg.schedule_days = m;
+    var box = $('#dayRow');
+    box.innerHTML = '';
+    DAYS.forEach(function(d){
+      var on = (m & d[1]) !== 0;
+      var b = chip((on ? '✓ ' : '') + d[0], on);
+      b.onclick = function(){
+        var nm = cfg.schedule_days || 127;
+        nm = on ? (nm & ~d[1]) : (nm | d[1]);
+        if (nm === 0){ toast('生效星期至少要留一天', false); return; }
+        setMask(nm);
+        pulseGate('schedule_days');
+        push(one('schedule_days', nm));
+      };
+      box.appendChild(b);
+    });
+    renderGates();
+  }
+
+  function renderHero(st){
+    var on = !!st.running;
+    running = on;
+    $('#btnGuard').textContent = on ? '暂停守护' : '开启守护';
+    $('#btnGuard').style.background = on ? '#8A3B44' : '';
+    $('#btnGuard').style.borderColor = on ? '#8A3B44' : '';
+    if (!st.running){
+      $('#heroState').textContent = '守护已关闭';
+      $('#heroSub').textContent = '点右侧按钮开启，开启后才会弹题';
+      $('#heroLeft').textContent = '—';
+    } else if (st.resting){
+      $('#heroState').textContent = '护眼休息中';
+      $('#heroSub').textContent = '倒计时结束自动回到电视';
+      $('#heroLeft').textContent = '休息';
+    } else if (st.locked){
+      $('#heroState').textContent = '锁屏中 · 等待答题';
+      $('#heroSub').textContent = '答对才会解锁';
+      $('#heroLeft').textContent = mmss(st.quiz_left_ms);
+    } else if (!st.window_active){
+      $('#heroState').textContent = '定时停用中 · 暂不弹题';
+      $('#heroSub').textContent = '到设定时段才恢复';
+      $('#heroLeft').textContent = mmss(st.quiz_left_ms);
+    } else {
+      $('#heroState').textContent = '守护中';
+      $('#heroSub').textContent = '每看 ' + cfg.watch_min + ' 分钟一道题 · 题库 ' + st.questions + ' 道';
+      $('#heroLeft').textContent = mmss(st.quiz_left_ms);
+    }
+    // 临时停用提示
+    var left = st.snooze_left_min;
+    $('#snoozeHint').textContent = (left > 0)
+      ? ('当前停用中，还剩约 ' + left + ' 分钟自动恢复。')
+      : '临时停用不会关掉守护，到点自动恢复计时。';
+    // 版本
+    if (st.version) setStatus('已连接 · ' + st.version, 'on');
+  }
+
+  var statusFails = 0;
+  function loadStatus(){
+    return apiGet('/api/status').then(function(st){
+      statusFails = 0;
+      renderHero(st);
+      renderWrong(st);
+    }).catch(function(){
+      // 电视关机 / 掉 WiFi：别让状态行一直挂着「已连接」骗人
+      statusFails++;
+      if (connected && statusFails >= 2) setStatus('连接已断开，点「连接」重连', 'off');
+    });
+  }
+
+  /** v2.5.4：错题统计。答错的题会被加权抽中，家长能看到错了多少、哪几道最常错。 */
+  function renderWrong(st){
+    var wt = st.wrong_times || 0, rt = st.wrong_right || 0, wq = st.wrong_questions || 0;
+    var line = $('#wrongLine');
+    var box = $('#wrongTop');
+    if (!box) return;
+    if (!wt && !rt){
+      line.textContent = '还没有记录。答错的题会自动进错题本，之后被抽中的概率变高（错 1 次 4 倍、错 2 次 7 倍，最高 16 倍）。';
+      box.innerHTML = '';
+      return;
+    }
+    line.textContent = '累计答对 ' + rt + ' 次 · 答错 ' + wt + ' 次 · 错题 ' + wq + ' 道；答对一次降一格，会慢慢回到普通题。';
+    box.innerHTML = '';
+    (st.wrong_top || []).forEach(function(s){
+      var d = document.createElement('span');
+      d.className = 'hint';
+      d.style.margin = '0';
+      d.textContent = '· ' + s;
+      box.appendChild(d);
+    });
+  }
+  function loadCfg(){
+    return apiGet('/api/get').then(function(c){
+      cfg = c;
+      renderAll();
+    });
+  }
+
+  /* ------------------------------ 题库 ------------------------------ */
+  // v2.6.4：改成「点一下就亮」的 chip，不再用复选框；删除走「删没点亮的」这条路。
+  var PACKS = [], PACKEL = {};
+  function renderPacks(list){
+    PACKS = list;
+    PACKEL = {};
+    var box = $('#packs');
+    if (!list.length){
+      box.innerHTML = '<span class="hint">没有题库包，请先上传 zip</span>';
+      renderPackSum();
+      return;
+    }
+    box.innerHTML = '';
+    list.forEach(function(p){
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'pc' + (p.installed ? ' on' : '');
+      b.title = p.id;
+      var dt = document.createElement('i'); dt.className = 'dt';
+      var nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = p.title;
+      var ct = document.createElement('span'); ct.className = 'cnt'; ct.textContent = p.count + ' 道';
+      b.appendChild(dt); b.appendChild(nm); b.appendChild(ct);
+      b.addEventListener('click', function(){
+        if (b.classList.contains('busy')) return;
+        setPack(p, b, !p.installed);
+      });
+      PACKEL[p.id] = b;
+      box.appendChild(b);
+    });
+    renderPackSum();
+  }
+  function renderPackSum(){
+    var on = PACKS.filter(function(p){ return p.installed; });
+    var q = on.reduce(function(a, p){ return a + (p.count || 0); }, 0);
+    var sum = $('#packSum');
+    if (sum && !sum.dataset.busy){
+      sum.innerHTML = PACKS.length
+        ? ('已点亮 <b>' + on.length + '</b> / ' + PACKS.length + ' 个包 · 出题池 ' + q + ' 道')
+        : '还没有题库包';
+    }
+    var pill = $('#packPill');
+    if (!pill) return;
+    if (!PACKS.length){ pill.className = 'pill off'; pill.textContent = '空'; }
+    else if (!on.length){ pill.className = 'pill off'; pill.textContent = '没点亮任何包'; }
+    else { pill.className = 'pill on'; pill.textContent = on.length + ' / ' + PACKS.length; }
+  }
+  /** 单个包：点亮／点灭。先动画面再发请求，失败回滚。 */
+  function setPack(p, el, on){
+    el.classList.add('busy');
+    return apiPost('/api/pack', {id:p.id, on:on}).then(function(r){
+      el.classList.remove('busy');
+      if (!r.ok){ toast((p.title || '') + '：' + (r.message || '操作失败'), false); return false; }
+      p.installed = on;
+      el.classList.toggle('on', on);
+      renderPackSum();
+      loadStatus();
+      return true;
+    }).catch(function(e){
+      el.classList.remove('busy');
+      toast('操作失败：' + e.message, false);
+      return false;
+    });
+  }
+  var packing = false;
+  function lockPackBtns(on){
+    packing = on;
+    ['#btnAllPack', '#btnNonePack', '#btnDelPack', '#btnRefreshPack'].forEach(function(s){
+      $(s).disabled = on;
+    });
+  }
+  /** 全选 / 全不选：逐个改，边改边亮，汇总一行进度，别一次甩上百个请求把人看懵。 */
+  function batchPacks(on){
+    if (packing) return;
+    var todo = PACKS.filter(function(p){ return !!p.installed !== on; });
+    if (!todo.length){ toast(on ? '所有包都已经是点亮的' : '所有包都已经点灭了', 'warn'); return; }
+    var sum = $('#packSum');
+    lockPackBtns(true);
+    sum.dataset.busy = '1';
+    var done = 0, fail = 0, i = 0;
+    function step(){
+      if (i >= todo.length){
+        delete sum.dataset.busy;
+        lockPackBtns(false);
+        renderPackSum();
+        toast((on ? '已点亮 ' : '已点灭 ') + done + ' 个包' + (fail ? ('，' + fail + ' 个失败') : ''), !fail);
+        return;
+      }
+      var p = todo[i++];
+      sum.innerHTML = (on ? '正在点亮 ' : '正在点灭 ') + (i) + ' / ' + todo.length + ' …';
+      var el = PACKEL[p.id];
+      if (!el){ step(); return; }
+      el.classList.add('busy');
+      apiPost('/api/pack', {id:p.id, on:on}).then(function(r){
+        el.classList.remove('busy');
+        if (r.ok){ p.installed = on; done++; el.classList.toggle('on', on); }
+        else fail++;
+        step();
+      }).catch(function(){ el.classList.remove('busy'); fail++; step(); });
+    }
+    step();
+  }
+  /** 删除 = 删掉当前没点亮的包。列名字让家长看清楚了再点，不用原生 confirm。 */
+  function deleteOffPacks(){
+    if (packing) return;
+    var off = PACKS.filter(function(p){ return !p.installed; });
+    var on = PACKS.length - off.length;
+    if (!off.length){
+      toast('没有没点亮的包可删 —— 现在 ' + on + ' 个包全都是点亮状态', 'warn');
+      return;
+    }
+    var names = off.slice(0, 60).map(function(p){ return p.title + '（' + p.count + ' 道）'; });
+    if (off.length > 60) names.push('…另外还有 ' + (off.length - 60) + ' 个');
+    var desc = '只会删掉下面这些<b>没点亮</b>的包；点亮着的 ' + on + ' 个包不受影响。'
+      + '删完要重新上传 zip 才能恢复。';
+    if (!on) desc = '现在<b>一个包都没点亮</b>，这一下会把题库<b>全部清空</b>，删完要重新上传 zip。';
+    ask({
+      title: '删除 ' + off.length + ' 个未点亮的题库包？',
+      desc: desc,
+      items: names,
+      ok: '确认删除 ' + off.length + ' 个',
+      onOk: function(){
+        lockPackBtns(true);
+        apiPost('/api/pack-delete', {ids: off.map(function(p){ return p.id; })})
+          .then(function(r){
+            lockPackBtns(false);
+            toast(r.message || (r.ok ? '已删除' : '删除失败'), !!r.ok);
+            if (r.ok){ loadPacks(); loadStatus(); }
+          }).catch(function(e){
+            lockPackBtns(false);
+            toast('删除失败：' + e.message, false);
+          });
+      }
+    });
+  }
+  function loadPacks(){ return apiGet('/api/packs').then(function(d){ renderPacks(d.packs || []); }); }
+
+  /* v2.6.5：把电视上的题库打包下载。导出的是标准 zip（与「上传 zip」同格式），
+     可以直接传到另一台电视导入，换设备不用重新找题。 */
+  var exporting = false;
+  function exportPacks(){
+    if (exporting) return;
+    if (!PACKS.length){ toast('还没有题库包，没什么可导出的', 'warn'); return; }
+    exporting = true;
+    var btn = $('#btnExportPack');
+    btn.disabled = true;
+    var sum = $('#packSum');
+    if (sum) sum.innerHTML = '正在打包 <b>' + PACKS.length + '</b> 个包…';
+    fetch(url('/api/export'), {method: 'GET'}).then(function(r){
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.blob();
+    }).then(function(b){
+      var d = new Date();
+      var stamp = '' + d.getFullYear()
+        + ('0' + (d.getMonth() + 1)).slice(-2) + ('0' + d.getDate()).slice(-2);
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(b);
+      a.download = '学习锁题库备份-' + stamp + '.zip';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function(){
+        URL.revokeObjectURL(a.href);
+        if (a.parentNode) a.parentNode.removeChild(a);
+      }, 2000);
+      toast('已导出 ' + Math.round(b.size / 1024) + ' KB，可直接导入另一台电视');
+    }).catch(function(e){
+      toast('导出失败：' + e.message, false);
+    }).then(function(){
+      exporting = false;
+      btn.disabled = false;
+      renderPackSum();
+    });
+  }
+
+  /* 通用确认弹窗（只有删除用到） */
+  function ask(o){
+    $('#askT').textContent = o.title;
+    $('#askD').innerHTML = o.desc || '';
+    var lst = $('#askL');
+    lst.innerHTML = '';
+    (o.items || []).forEach(function(t){
+      var d = document.createElement('div');
+      d.textContent = t;
+      lst.appendChild(d);
+    });
+    lst.style.display = (o.items && o.items.length) ? '' : 'none';
+    var yes = $('#askYes');
+    yes.textContent = o.ok || '确定';
+    $('#ask').hidden = false;
+    var close = function(){ $('#ask').hidden = true; };
+    $('#askNo').onclick = close;
+    yes.onclick = function(){ close(); if (o.onOk) o.onOk(); };
+    $('#ask').onclick = function(e){ if (e.target === $('#ask')) close(); };
+    document.addEventListener('keydown', function esc(e){
+      if (e.key === 'Escape'){ close(); document.removeEventListener('keydown', esc); }
+    });
+  }
+
+  function renderZips(list){
+    var box = $('#zips');
+    if (!list.length){ box.innerHTML = '<span class="hint">本机下载目录里没有 zip（可用上面的上传按钮）</span>'; return; }
+    box.innerHTML = '';
+    list.forEach(function(name){
+      var b = document.createElement('button');
+      b.className = 'chip';
+      b.textContent = name;
+      b.addEventListener('click', function(){
+        b.disabled = true;
+        apiPost('/api/import-local', {name:name}).then(function(r){
+          toast(r.message, !r.ok ? false : true);
+          if (r.ok) loadPacks();
+          b.disabled = false;
+        }).catch(function(e){ toast('导入失败：' + e.message, false); b.disabled = false; });
+      });
+      box.appendChild(b);
+    });
+  }
+  function loadZips(){ return apiGet('/api/zips').then(function(d){ renderZips(d.zips || []); }); }
+
+  /* ------------------------------ 连接 ------------------------------ */
+  function baseFromInputs(){
+    if (SAME){
+      // 同源直连：地址栏 = 电视给的 http://<ip>:<port>/?t=xxxx
+      var m = /[?&]t=([^&#]*)/.exec(location.search || '');
+      var t = m ? decodeURIComponent(m[1]) : '';
+      if (!t) throw new Error('这个网址里没有验证码，回电视上重新扫码或复制完整地址');
+      TOKEN = t;
+      BASE = '';   // 相对路径，直接打本机这一台
+      return;
+    }
+    var ip = $('#ip').value.trim().replace(/^https?:\/\//i,'').replace(/\/.*$/,'');
+    var port = $('#port').value.trim() || '8765';
+    if (ip.indexOf(':') >= 0){ var a = ip.split(':'); ip = a[0]; port = a[1] || port; }
+    TOKEN = $('#token').value.trim();
+    if (!ip || !TOKEN) throw new Error('先填电视 IP 和 8 位验证码');
+    BASE = 'http://' + ip + ':' + port;
+    lsSet('sl_ip', $('#ip').value.trim());
+    lsSet('sl_port', $('#port').value.trim());
+    lsSet('sl_token', TOKEN);
+  }
+
+  function connect(quiet){
+    try { baseFromInputs(); } catch(e){ if (!quiet) toast(e.message, false); return; }
+    setStatus('正在连接 ' + BASE + ' …', '');
+    $('#btnConnect').disabled = true;
+    apiGet('/api/get').then(function(c){
+      cfg = c; connected = true;
+      renderAll();
+      return Promise.all([loadStatus(), loadPacks(), loadZips()]);
+    }).then(function(){
+      $('#btnConnect').disabled = false;
+      if (quiet) toast(SAME ? '已连上这台电视' : '已自动连上上次的电视 · ' + BASE.replace(/^https?:\/\//, ''));
+      else toast('已连接，改动会立即生效');
+      setStatus('已连接 · ' + (cfg.version || ''), 'on');
+    }).catch(function(e){
+      connected = false;
+      $('#btnConnect').disabled = false;
+      if (quiet){
+        // 电视关着或换了 IP：刷新页面后不该甩一条红字，只在状态行说一句
+        setStatus('未连接 · 上次的电视没响应，点「连接」重试', 'off');
+      } else {
+        setStatus('连接失败', 'off');
+        toast('连接失败：' + e.message + '　请检查同一 WiFi、电视上「局域网家长控制」是否开启、验证码是否正确', false);
+      }
+    });
+  }
+
+  /* ------------------------------ 事件绑定 ------------------------------ */
+  $('#btnConnect').addEventListener('click', function(){ connect(false); });
+  $('#btnRefresh').addEventListener('click', function(){
+    try { baseFromInputs(); } catch(e){ toast(e.message, false); return; }
+    connected = true;
+    Promise.all([loadCfg(), loadStatus(), loadPacks(), loadZips()])
+      .then(function(){ toast('已刷新'); })
+      .catch(function(e){ toast('刷新失败：' + e.message, false); });
+  });
+
+  $('#btnGuard').addEventListener('click', function(){
+    // 乐观切换：先更新按钮，再提交；3 秒轮询会以服务端状态为准纠正回来
+    running = !running;
+    $('#btnGuard').textContent = running ? '暂停守护' : '开启守护';
+    $('#btnGuard').style.background = running ? '#8A3B44' : '';
+    $('#btnGuard').style.borderColor = running ? '#8A3B44' : '';
+    push(one('running', running));
+  });
+
+  // v2.5.4：错题统计清空
+  $('#wrongClear').addEventListener('click', function(){
+    if (!connected){ toast('先点「连接」', false); return; }
+    if (!confirm('清空错题统计？只清统计，不动题库。')) return;
+    apiPost('/api/set', {wrong_clear: true}).then(function(r){
+      toast(r.message || '已清空');
+      flash($('#wrongClear'), '已清空');
+      loadStatus();
+    }).catch(function(e){ toast('操作失败：' + e.message, false); });
+  });
+
+  // v2.6.6：答题 / 护眼休息两个区域各一个「立即测试弹窗」——
+  // 在手机上改完时长就地验一次，不用跑到电视前按遥控器。
+  function testPopup(kind, btn){
+    if (!connected){ toast('先点「连接」', false); return; }
+    var label = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '已发给电视…';
+    apiPost('/api/test', {kind: kind}).then(function(r){
+      toast(r.message || (r.ok === false ? '没弹出来' : '已触发'), r.ok === false ? 'warn' : true);
+      if (r.ok === false) { btn.disabled = false; btn.textContent = label; return; }
+      setTimeout(function(){ btn.disabled = false; btn.textContent = label; }, 1500);
+    }).catch(function(e){
+      toast('触发失败：' + e.message, false);
+      btn.disabled = false; btn.textContent = label;
+    });
+  }
+  $('#btnTestQuiz').addEventListener('click', function(){ testPopup('quiz', this); });
+  $('#btnTestRest').addEventListener('click', function(){ testPopup('rest', this); });
+
+  /* v2.6.5：控制端改家长密码。改的是电视本机存的 4 位密码，改完立刻生效。 */
+  function changePin(){
+    if (!connected){ toast('先点「连接」', false); return; }
+    var op  = ($('#pinOld').value  || '').trim();
+    var np  = ($('#pinNew').value  || '').trim();
+    var np2 = ($('#pinNew2').value || '').trim();
+    if (!/^\d{4}$/.test(np)){ toast('新密码必须是 4 位数字', false); return; }
+    if (np !== np2){ toast('两次输入的新密码不一致', false); return; }
+    if (cfg.pin_set && !/^\d{4}$/.test(op)){ toast('请输入原密码', false); return; }
+    var btn = $('#btnPin');
+    btn.disabled = true;
+    apiPost('/api/set', {pin: np, old_pin: op}).then(function(r){
+      btn.disabled = false;
+      if (!r.ok){ toast(r.message || '修改失败', false); return; }
+      toast(r.message || '家长密码已修改');
+      $('#pinOld').value = ''; $('#pinNew').value = ''; $('#pinNew2').value = '';
+      cfg.pin_set = true;
+      var pp = $('#pinPill');
+      if (pp){ pp.className = 'pill on'; pp.textContent = '已设置'; }
+    }).catch(function(e){
+      btn.disabled = false;
+      toast('修改失败：' + e.message, false);
+    });
+  }
+  $('#btnPin').addEventListener('click', changePin);
+  ['#pinOld', '#pinNew', '#pinNew2'].forEach(function(s){
+    $(s).addEventListener('keydown', function(e){ if (e.key === 'Enter') changePin(); });
+  });
+
+  $$('#snoozeRow [data-snooze]').forEach(function(b){
+    b.addEventListener('click', function(){
+      var m = parseInt(b.getAttribute('data-snooze'), 10);
+      push(one('snooze_min', m));
+      toast(m > 0 ? ('已临时停用 ' + m + ' 分钟') : '已立即恢复');
+      setTimeout(loadStatus, 400);
+    });
+  });
+
+  $$('[data-days]').forEach(function(b){
+    b.addEventListener('click', function(){
+      var m = parseInt(b.getAttribute('data-days'),10);
+      setMask(m);
+      push(one('schedule_days', m));
+    });
+  });
+
+  ['schStart','schEnd'].forEach(function(k){
+    var el = $('#' + k);
+    el.addEventListener('change', function(){
+      var v = fromHHMM(el.value);
+      if (v === null){ toast('时间要填 4 位数字，如 1830', false); el.value = hhmm(k === 'schStart' ? cfg.schedule_start : cfg.schedule_end); return; }
+      var key = (k === 'schStart') ? 'schedule_start' : 'schedule_end';
+      cfg[key] = v;
+      el.value = hhmm(v);
+      renderGates();
+      pulseGate(key);
+      push(one(key, v));
+    });
+  });
+
+  $('#ttsVoice').addEventListener('change', function(){
+    push(one('tts_voice', $('#ttsVoice').value.trim()));
+  });
+  // v2.6.5：这几项原来只在电视上那个「语音设置」网页里能改，现在搬到面板，那个页面可以退休了
+  $('#azureKey').addEventListener('change', function(){
+    var v = this.value.trim();
+    push(one('azure_key', v));
+    toast(v ? '微软 Key 已保存，下一句朗读就用它' : '已改回免 Key 的免费通道');
+    loadCfg();
+  });
+  $('#azureRegion').addEventListener('change', function(){
+    push(one('azure_region', this.value.trim()));
+  });
+
+  $('#btnUpload').addEventListener('click', function(){
+    var f = $('#zipFile').files[0];
+    if (!f){ toast('先选一个 .zip 文件', false); return; }
+    try { baseFromInputs(); } catch(e){ toast(e.message, false); return; }
+    $('#btnUpload').disabled = true;
+    $('#uploadMsg').textContent = '正在上传 ' + f.name + ' …';
+    fetch(url('/api/upload'), {method:'POST',
+      headers:{'Content-Type':'application/octet-stream'}, body:f})
+      .then(checkResp).then(function(r){
+        $('#uploadMsg').textContent = r.message || '上传完成';
+        toast(r.message, !!r.ok);
+        if (r.ok) loadPacks();
+        $('#btnUpload').disabled = false;
+      }).catch(function(e){
+        $('#uploadMsg').textContent = '上传失败';
+        toast('上传失败：' + e.message, false);
+        $('#btnUpload').disabled = false;
+      });
+  });
+  $('#btnAllPack').addEventListener('click', function(){ batchPacks(true); });
+  $('#btnNonePack').addEventListener('click', function(){ batchPacks(false); });
+  $('#btnDelPack').addEventListener('click', deleteOffPacks);
+  $('#btnExportPack').addEventListener('click', exportPacks);
+  $('#btnRefreshPack').addEventListener('click', function(){
+    loadPacks().then(function(){ toast('题库列表已刷新'); })
+      .catch(function(e){ toast('刷新失败：' + e.message, false); });
+  });
+
+  $('#btnTheme').addEventListener('click', function(){
+    document.body.classList.toggle('light');
+    this.textContent = document.body.classList.contains('light') ? '🌙' : '☀';
+    lsSet('sl_theme', document.body.classList.contains('light') ? 'light' : 'dark');
+  });
+
+  ['ip','port','token'].forEach(function(k){
+    var v = lsGet('sl_' + k);
+    if (v) $('#' + k).value = v;
+  });
+  ['ip','port','token'].forEach(function(k){
+    $('#' + k).addEventListener('keydown', function(e){ if (e.key === 'Enter') connect(false); });
+  });
+  if (lsGet('sl_theme') === 'light'){
+    document.body.classList.add('light'); $('#btnTheme').textContent = '🌙';
+  }
+
+  // 连着的状态下每 3 秒刷一次状态条（守护 / 剩余时间 / 休息倒计时）
+  // 注意判 connected 而不是 BASE：同源直连时 BASE 是空字符串，判 BASE 会让轮询永远不跑
+  setInterval(function(){ if (connected) loadStatus(); }, 3000);
+
+  // 首屏用默认值先画一遍
+  for (var k0 in DEF) cfg[k0] = DEF[k0];
+  renderAll();
+
+  if (SAME){
+    // 电视给的网址直达：把「填 IP／验证码」那套收起来，进来就是设置界面
+    ['ip','port','token','btnConnect'].forEach(function(k){
+      var el = $('#' + k); if (el) el.style.display = 'none';
+    });
+    setStatus('正在连接这台电视…', '');
+    connect(true);
+  } else if (lsGet('sl_ip') && lsGet('sl_token')){
+    // v2.6.2：IP / 端口 / 验证码本来就存在本机，刷新后却要求家长再点一次「连接」，
+    // 看起来像「刚连上就掉线」。这里直接连回去：失败只在状态行说明，不弹红字。
+    connect(true);
+  }
+})();
+</script>
+</body>
+</html>

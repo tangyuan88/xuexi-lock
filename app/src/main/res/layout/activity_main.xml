@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="24dp" android:gravity="center_horizontal">
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="学习锁" android:textSize="28sp" android:textStyle="bold"
+        android:textColor="#3D7BFF" android:layout_marginBottom="24dp" />
+    <TextView android:id="@+id/tvIp" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:textSize="14sp"
+        android:layout_marginBottom="8dp" />
+    <TextView android:id="@+id/tvToken" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:textSize="20sp" android:textStyle="bold"
+        android:layout_marginBottom="24dp" />
+    <Button android:id="@+id/btnStart" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:text="开始专注（锁定答题）" />
+    <Button android:id="@+id/btnPacks" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:text="题库包管理" />
+    <Button android:id="@+id/btnPin" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:text="家长密码设置" />
+    <Button android:id="@+id/btnOverlay" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:text="授予悬浮窗权限" />
+    <Button android:id="@+id/btnBattery" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:text="忽略电池优化" />
+</LinearLayout>
